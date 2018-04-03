@@ -158,6 +158,17 @@ SettingInfo OnScreenDisplaySettings[] =
 {"Display Debug Information With Core Msgs", ONSCREEN_DISPLAY_DEBUG_INFORMATION_WITH_CORE_MSG},
 };
 
+// Provenance
+#ifdef PROVENANCE
+extern "C" {
+	__attribute__((visibility("default"))) void _PV_ForceUpdateWindowSize(int width, int height)
+	{
+		windowSetting.uDisplayWidth = width;
+		windowSetting.uDisplayHeight = height;
+	}
+}
+#endif
+
 void GenerateFrameBufferOptions(void)
 {
     if( CDeviceBuilder::GetGeneralDeviceType() == OGL_DEVICE )
