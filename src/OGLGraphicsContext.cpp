@@ -78,7 +78,7 @@ bool COGLGraphicsContext::Initialize(uint32 dwWidth, uint32 dwHeight, BOOL bWind
     const int iDOUBLEBUFFER = 1;
 
 	// Provenance
-#ifdef PROVENANCE
+#ifndef PROVENANCE
     /* set opengl attributes */
     CoreVideo_GL_SetAttribute(M64P_GL_DOUBLEBUFFER, iDOUBLEBUFFER);
     CoreVideo_GL_SetAttribute(M64P_GL_SWAP_CONTROL, bVerticalSync);
@@ -111,7 +111,7 @@ bool COGLGraphicsContext::Initialize(uint32 dwWidth, uint32 dwHeight, BOOL bWind
     }
 
 	// Provenance
-#ifdef PROVENANCE
+#ifndef PROVENANCE
     /* check that our opengl attributes were properly set */
     int iActual;
     if (CoreVideo_GL_GetAttribute(M64P_GL_DOUBLEBUFFER, &iActual) == M64ERR_SUCCESS)
@@ -356,7 +356,7 @@ void COGLGraphicsContext::UpdateFrame(bool swaponly)
     status.gFrameCount++;
 
 	// Provenance
-#ifdef PROVENANCE
+#ifndef PROVENANCE
 	glFlush();
     OPENGL_CHECK_ERRORS;
 #endif
