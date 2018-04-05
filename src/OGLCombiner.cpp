@@ -93,7 +93,17 @@ static const char *fragmentShaderHeader =
 "#define mediump\n"
 "#define highp\n"
 "#endif\n"
-"\n"
+"\n";
+
+static const char *fragmentShaderBigEndianHeader =
+"#define SAMPLE_TEXTURE(samp, uv) (texture2D(samp, uv).gbar)\n"
+"\n";
+
+static const char *fragmentShaderLittleEndianHeader =
+"#define SAMPLE_TEXTURE(samp, uv) (texture2D(samp, uv).bgra)\n"
+"\n";
+
+static const char *fragmentCycle12Header =
 "uniform vec4 uBlendColor;\n"
 "uniform vec4 uPrimColor;\n"
 "uniform vec4 uEnvColor;\n"
@@ -119,21 +129,12 @@ static const char *fragmentShaderHeader =
 
 //Fragment shader for InitCycleCopy
 static const char *fragmentCopyHeader =
-"#version " GLSL_VERSION "\n"
-"#ifdef GL_ES\n"
-"precision lowp float;\n"
-"#else\n"
-"#define lowp\n"
-"#define mediump\n"
-"#define highp\n"
-"#endif\n"
-"\n"
 "uniform vec4 uBlendColor;\n"
 "uniform sampler2D uTex0;\n"
 "varying vec2 vertexTexCoord0;\n"
 "void main()\n"
 "{\n"
-"vec4 outColor = texture2D(uTex0,vertexTexCoord0);\n";
+"vec4 outColor = SAMPLE_TEXTURE(uTex0,vertexTexCoord0);\n";
 
 //Fragment shader for InitCycleFill (the only self contain fragment shader)
 static const char *fragmentFill =
@@ -155,6 +156,19 @@ static const char *fragmentFill =
 static const char *fragmentShaderFooter =
 "gl_FragColor = outColor;\n"
 "}\n";
+
+static bool isBigEndian()
+{
+    int number = 1;
+    return ((char*)&number)[0] == 0;
+}
+
+static void writeFragmentShaderHeader()
+{
+    newFrgStr[0] = 0;
+    strcat(newFrgStr, fragmentShaderHeader);
+    strcat(newFrgStr, isBigEndian() ? fragmentShaderBigEndianHeader : fragmentShaderLittleEndianHeader);
+}
 
 static GLuint createShader( GLenum shaderType, const char* shaderSrc )
 {
@@ -511,9 +525,9 @@ void COGLColorCombiner::genFragmentBlenderStr( char *newFrgStr )
 // don't forget to modify the part for the other (A and a, B and b, etc...)
 GLuint COGLColorCombiner::GenerateCycle12Program()
 {
-    newFrgStr[0] = 0;
+    writeFragmentShaderHeader();
 
-    strcat(newFrgStr, fragmentShaderHeader);
+    strcat(newFrgStr, fragmentCycle12Header);
 
     ////////////////////////////////////////////////////////////////////////////
     // Colors (rgb) Cycle 1
@@ -527,10 +541,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
             //strcat(newFrgStr, "vec3 AColor = vec3(1.0, 1.0, 1.0);\n"); // set "something".
             break;
         case CCMUX_TEXEL0 : // 1
-            strcat(newFrgStr, "vec3 AColor = texture2D(uTex0,vertexTexCoord0).rgb;\n");
+            strcat(newFrgStr, "vec3 AColor = SAMPLE_TEXTURE(uTex0,vertexTexCoord0).rgb;\n");
             break;
         case CCMUX_TEXEL1 : // 2
-            strcat(newFrgStr, "vec3 AColor = texture2D(uTex1,vertexTexCoord1).rgb;\n");
+            strcat(newFrgStr, "vec3 AColor = SAMPLE_TEXTURE(uTex1,vertexTexCoord1).rgb;\n");
             break;
         case CCMUX_PRIMITIVE : // 3
             strcat(newFrgStr, "vec3 AColor = uPrimColor.rgb;\n");
@@ -561,10 +575,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
             //strcat(newFrgStr, "vec3 BColor = vec3(1.0, 1.0, 1.0);\n"); // set "something".
             break;
         case CCMUX_TEXEL0 : // 1
-            strcat(newFrgStr, "vec3 BColor = texture2D(uTex0,vertexTexCoord0).rgb;\n");
+            strcat(newFrgStr, "vec3 BColor = SAMPLE_TEXTURE(uTex0,vertexTexCoord0).rgb;\n");
             break;
         case CCMUX_TEXEL1 :// 2
-            strcat(newFrgStr, "vec3 BColor = texture2D(uTex1,vertexTexCoord1).rgb;\n");
+            strcat(newFrgStr, "vec3 BColor = SAMPLE_TEXTURE(uTex1,vertexTexCoord1).rgb;\n");
             break;
         case CCMUX_PRIMITIVE : // 3
             strcat(newFrgStr, "vec3 BColor = uPrimColor.rgb;\n");
@@ -596,10 +610,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
             //strcat(newFrgStr, "vec3 CColor = vec3(1.0, 1.0, 1.0);\n"); // set "something".
             break;
         case CCMUX_TEXEL0 : // 1
-            strcat(newFrgStr, "vec3 CColor = texture2D(uTex0,vertexTexCoord0).rgb;\n");
+            strcat(newFrgStr, "vec3 CColor = SAMPLE_TEXTURE(uTex0,vertexTexCoord0).rgb;\n");
             break;
         case CCMUX_TEXEL1 :// 2
-            strcat(newFrgStr, "vec3 CColor = texture2D(uTex1,vertexTexCoord1).rgb;\n");
+            strcat(newFrgStr, "vec3 CColor = SAMPLE_TEXTURE(uTex1,vertexTexCoord1).rgb;\n");
             break;
         case CCMUX_PRIMITIVE : // 3
             strcat(newFrgStr, "vec3 CColor = uPrimColor.rgb;\n");
@@ -619,10 +633,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
             //strcat(newFrgStr, "vec3 CColor = uEnvColor;\n");
             break;
         case CCMUX_TEXEL0_ALPHA : // 8
-            strcat(newFrgStr, "vec3 CColor = vec3(texture2D(uTex0,vertexTexCoord0).a);\n");
+            strcat(newFrgStr, "vec3 CColor = vec3(SAMPLE_TEXTURE(uTex0,vertexTexCoord0).a);\n");
             break;
         case CCMUX_TEXEL1_ALPHA : // 9
-            strcat(newFrgStr, "vec3 CColor = vec3(texture2D(uTex1,vertexTexCoord1).a);\n");
+            strcat(newFrgStr, "vec3 CColor = vec3(SAMPLE_TEXTURE(uTex1,vertexTexCoord1).a);\n");
             break;
         case CCMUX_PRIMITIVE_ALPHA : // 10
             strcat(newFrgStr, "vec3 CColor = vec3(uPrimColor.a);\n");
@@ -656,10 +670,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
             //strcat(newFrgStr, "vec3 DColor = vec3(1.0, 1.0, 1.0);\n"); // set "something".
             break;
         case CCMUX_TEXEL0 : // 1
-            strcat(newFrgStr, "vec3 DColor = texture2D(uTex0,vertexTexCoord0).rgb;\n");
+            strcat(newFrgStr, "vec3 DColor = SAMPLE_TEXTURE(uTex0,vertexTexCoord0).rgb;\n");
             break;
         case CCMUX_TEXEL1 :// 2
-            strcat(newFrgStr, "vec3 DColor = texture2D(uTex1,vertexTexCoord1).rgb;\n");
+            strcat(newFrgStr, "vec3 DColor = SAMPLE_TEXTURE(uTex1,vertexTexCoord1).rgb;\n");
             break;
         case CCMUX_PRIMITIVE : // 3
             strcat(newFrgStr, "vec3 DColor = uPrimColor.rgb;\n");
@@ -691,10 +705,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
             //strcat(newFrgStr, "float AAlpha = 1.0;\n"); // set "something".
             break;
         case ACMUX_TEXEL0 : // 1
-            strcat(newFrgStr, "float AAlpha = texture2D(uTex0,vertexTexCoord0).a;\n");
+            strcat(newFrgStr, "float AAlpha = SAMPLE_TEXTURE(uTex0,vertexTexCoord0).a;\n");
             break;
         case ACMUX_TEXEL1 : // 2
-            strcat(newFrgStr, "float AAlpha = texture2D(uTex1,vertexTexCoord1).a;\n");
+            strcat(newFrgStr, "float AAlpha = SAMPLE_TEXTURE(uTex1,vertexTexCoord1).a;\n");
             break;
         case ACMUX_PRIMITIVE : // 3
             strcat(newFrgStr, "float AAlpha = uPrimColor.a;\n");
@@ -722,10 +736,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
             //strcat(newFrgStr, "float BAlpha = 1.0;\n"); // set "something".
             break;
         case ACMUX_TEXEL0 : // 1
-            strcat(newFrgStr, "float BAlpha = texture2D(uTex0,vertexTexCoord0).a;\n");
+            strcat(newFrgStr, "float BAlpha = SAMPLE_TEXTURE(uTex0,vertexTexCoord0).a;\n");
             break;
         case ACMUX_TEXEL1 : // 2
-            strcat(newFrgStr, "float BAlpha = texture2D(uTex1,vertexTexCoord1).a;\n");
+            strcat(newFrgStr, "float BAlpha = SAMPLE_TEXTURE(uTex1,vertexTexCoord1).a;\n");
             break;
         case ACMUX_PRIMITIVE : // 3
             strcat(newFrgStr, "float BAlpha = uPrimColor.a;\n");
@@ -752,10 +766,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
             strcat(newFrgStr, "float CAlpha = uLodFrac;\n");
             break;
         case ACMUX_TEXEL0 : // 1
-            strcat(newFrgStr, "float CAlpha = texture2D(uTex0,vertexTexCoord0).a;\n");
+            strcat(newFrgStr, "float CAlpha = SAMPLE_TEXTURE(uTex0,vertexTexCoord0).a;\n");
             break;
         case ACMUX_TEXEL1 : // 2
-            strcat(newFrgStr, "float CAlpha = texture2D(uTex1,vertexTexCoord1).a;\n");
+            strcat(newFrgStr, "float CAlpha = SAMPLE_TEXTURE(uTex1,vertexTexCoord1).a;\n");
             break;
         case ACMUX_PRIMITIVE : // 3
             strcat(newFrgStr, "float CAlpha = uPrimColor.a;\n");
@@ -783,10 +797,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
             //strcat(newFrgStr, "float DAlpha = 1.0;\n"); // set "something".
             break;
         case ACMUX_TEXEL0 : // 1
-            strcat(newFrgStr, "float DAlpha = texture2D(uTex0,vertexTexCoord0).a;\n");
+            strcat(newFrgStr, "float DAlpha = SAMPLE_TEXTURE(uTex0,vertexTexCoord0).a;\n");
             break;
         case ACMUX_TEXEL1 : // 2
-            strcat(newFrgStr, "float DAlpha = texture2D(uTex1,vertexTexCoord1).a;\n");
+            strcat(newFrgStr, "float DAlpha = SAMPLE_TEXTURE(uTex1,vertexTexCoord1).a;\n");
             break;
         case ACMUX_PRIMITIVE : // 3
             strcat(newFrgStr, "float DAlpha = uPrimColor.a;\n");
@@ -842,10 +856,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
                         strcat(newFrgStr, "AColor = cycle1Color;\n");
                         break;
                     case CCMUX_TEXEL0 : // 1
-                        strcat(newFrgStr, "AColor = texture2D(uTex0,vertexTexCoord0).rgb;\n");
+                        strcat(newFrgStr, "AColor = SAMPLE_TEXTURE(uTex0,vertexTexCoord0).rgb;\n");
                         break;
                     case CCMUX_TEXEL1 : // 2
-                        strcat(newFrgStr, "AColor = texture2D(uTex1,vertexTexCoord1).rgb;\n");
+                        strcat(newFrgStr, "AColor = SAMPLE_TEXTURE(uTex1,vertexTexCoord1).rgb;\n");
                         break;
                     case CCMUX_PRIMITIVE : // 3
                         strcat(newFrgStr, "AColor = uPrimColor.rgb;\n");
@@ -875,10 +889,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
                         strcat(newFrgStr, "BColor = cycle1Color;\n");
                         break;
                     case CCMUX_TEXEL0 : // 1
-                        strcat(newFrgStr, "BColor = texture2D(uTex0,vertexTexCoord0).rgb;\n");
+                        strcat(newFrgStr, "BColor = SAMPLE_TEXTURE(uTex0,vertexTexCoord0).rgb;\n");
                         break;
                     case CCMUX_TEXEL1 :// 2
-                        strcat(newFrgStr, "BColor = texture2D(uTex1,vertexTexCoord1).rgb;\n");
+                        strcat(newFrgStr, "BColor = SAMPLE_TEXTURE(uTex1,vertexTexCoord1).rgb;\n");
                         break;
                     case CCMUX_PRIMITIVE : // 3
                         strcat(newFrgStr, "BColor = uPrimColor.rgb;\n");
@@ -908,10 +922,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
                         strcat(newFrgStr, "CColor = cycle1Color;\n");
                         break;
                     case CCMUX_TEXEL0 : // 1
-                        strcat(newFrgStr, "CColor = texture2D(uTex0,vertexTexCoord0).rgb;\n");
+                        strcat(newFrgStr, "CColor = SAMPLE_TEXTURE(uTex0,vertexTexCoord0).rgb;\n");
                         break;
                     case CCMUX_TEXEL1 :// 2
-                        strcat(newFrgStr, "CColor = texture2D(uTex1,vertexTexCoord1).rgb;\n");
+                        strcat(newFrgStr, "CColor = SAMPLE_TEXTURE(uTex1,vertexTexCoord1).rgb;\n");
                         break;
                     case CCMUX_PRIMITIVE : // 3
                         strcat(newFrgStr, "CColor = uPrimColor.rgb;\n");
@@ -929,10 +943,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
                         strcat(newFrgStr, "CColor = vec3(cycle1Alpha);\n");
                         break;
                     case CCMUX_TEXEL0_ALPHA : // 8
-                        strcat(newFrgStr, "CColor = vec3(texture2D(uTex0,vertexTexCoord0).a);\n");
+                        strcat(newFrgStr, "CColor = vec3(SAMPLE_TEXTURE(uTex0,vertexTexCoord0).a);\n");
                         break;
                     case CCMUX_TEXEL1_ALPHA : // 9
-                        strcat(newFrgStr, "CColor = vec3(texture2D(uTex1,vertexTexCoord1).a);\n");
+                        strcat(newFrgStr, "CColor = vec3(SAMPLE_TEXTURE(uTex1,vertexTexCoord1).a);\n");
                         break;
                     case CCMUX_PRIMITIVE_ALPHA : // 10
                         strcat(newFrgStr, "CColor = vec3(uPrimColor.a);\n");
@@ -965,10 +979,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
                         strcat(newFrgStr, "DColor = cycle1Color;\n");
                         break;
                     case CCMUX_TEXEL0 : // 1
-                        strcat(newFrgStr, "DColor = texture2D(uTex0,vertexTexCoord0).rgb;\n");
+                        strcat(newFrgStr, "DColor = SAMPLE_TEXTURE(uTex0,vertexTexCoord0).rgb;\n");
                         break;
                     case CCMUX_TEXEL1 :// 2
-                        strcat(newFrgStr, "DColor = texture2D(uTex1,vertexTexCoord1).rgb;\n");
+                        strcat(newFrgStr, "DColor = SAMPLE_TEXTURE(uTex1,vertexTexCoord1).rgb;\n");
                         break;
                     case CCMUX_PRIMITIVE : // 3
                         strcat(newFrgStr, "DColor = uPrimColor.rgb;\n");
@@ -999,10 +1013,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
                         strcat(newFrgStr, "AAlpha = cycle1Alpha;\n");
                         break;
                     case ACMUX_TEXEL0 : // 1
-                        strcat(newFrgStr, "AAlpha = texture2D(uTex0,vertexTexCoord0).a;\n");
+                        strcat(newFrgStr, "AAlpha = SAMPLE_TEXTURE(uTex0,vertexTexCoord0).a;\n");
                         break;
                     case ACMUX_TEXEL1 : // 2
-                        strcat(newFrgStr, "AAlpha = texture2D(uTex1,vertexTexCoord1).a;\n");
+                        strcat(newFrgStr, "AAlpha = SAMPLE_TEXTURE(uTex1,vertexTexCoord1).a;\n");
                         break;
                     case ACMUX_PRIMITIVE : // 3
                         strcat(newFrgStr, "AAlpha = uPrimColor.a;\n");
@@ -1029,10 +1043,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
                         strcat(newFrgStr, "BAlpha = cycle1Alpha;\n");
                         break;
                     case ACMUX_TEXEL0 : // 1
-                        strcat(newFrgStr, "BAlpha = texture2D(uTex0,vertexTexCoord0).a;\n");
+                        strcat(newFrgStr, "BAlpha = SAMPLE_TEXTURE(uTex0,vertexTexCoord0).a;\n");
                         break;
                     case ACMUX_TEXEL1 : // 2
-                        strcat(newFrgStr, "BAlpha = texture2D(uTex1,vertexTexCoord1).a;\n");
+                        strcat(newFrgStr, "BAlpha = SAMPLE_TEXTURE(uTex1,vertexTexCoord1).a;\n");
                         break;
                     case ACMUX_PRIMITIVE : // 3
                         strcat(newFrgStr, "BAlpha = uPrimColor.a;\n");
@@ -1059,10 +1073,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
                         strcat(newFrgStr, "CAlpha = uLodFrac;\n");
                         break;
                     case ACMUX_TEXEL0 : // 1
-                        strcat(newFrgStr, "CAlpha = texture2D(uTex0,vertexTexCoord0).a;\n");
+                        strcat(newFrgStr, "CAlpha = SAMPLE_TEXTURE(uTex0,vertexTexCoord0).a;\n");
                         break;
                     case ACMUX_TEXEL1 : // 2
-                        strcat(newFrgStr, "CAlpha = texture2D(uTex1,vertexTexCoord1).a;\n");
+                        strcat(newFrgStr, "CAlpha = SAMPLE_TEXTURE(uTex1,vertexTexCoord1).a;\n");
                         break;
                     case ACMUX_PRIMITIVE : // 3
                         strcat(newFrgStr, "CAlpha = uPrimColor.a;\n");
@@ -1089,10 +1103,10 @@ GLuint COGLColorCombiner::GenerateCycle12Program()
                         strcat(newFrgStr, "DAlpha = cycle1Alpha;\n");
                         break;
                     case ACMUX_TEXEL0 : // 1
-                        strcat(newFrgStr, "DAlpha = texture2D(uTex0,vertexTexCoord0).a;\n");
+                        strcat(newFrgStr, "DAlpha = SAMPLE_TEXTURE(uTex0,vertexTexCoord0).a;\n");
                         break;
                     case ACMUX_TEXEL1 : // 2
-                        strcat(newFrgStr, "DAlpha = texture2D(uTex1,vertexTexCoord1).a;\n");
+                        strcat(newFrgStr, "DAlpha = SAMPLE_TEXTURE(uTex1,vertexTexCoord1).a;\n");
                         break;
                     case ACMUX_PRIMITIVE : // 3
                         strcat(newFrgStr, "DAlpha = uPrimColor.a;\n");
@@ -1173,7 +1187,7 @@ GLuint COGLColorCombiner::GenerateCopyProgram()
     assert( gRDP.otherMode.cycle_type == CYCLE_TYPE_COPY );
     assert( m_vtxShader != CC_NULL_SHADER );
 
-    newFrgStr[0] = 0;
+    writeFragmentShaderHeader();
     strcat(newFrgStr, fragmentCopyHeader);   // (always the same)
     genFragmentBlenderStr(newFrgStr);
     strcat(newFrgStr, fragmentShaderFooter); // (always the same)
