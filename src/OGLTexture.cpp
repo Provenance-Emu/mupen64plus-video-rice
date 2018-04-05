@@ -53,6 +53,7 @@ COGLTexture::COGLTexture(uint32 dwWidth, uint32 dwHeight, TextureUsage usage) :
 
     m_pTexture = malloc(m_dwCreatedTextureWidth * m_dwCreatedTextureHeight * GetPixelSize());
 
+#ifndef USE_GLES
     switch( options.textureQuality )
     {
     case TXT_QUALITY_DEFAULT:
@@ -65,14 +66,10 @@ COGLTexture::COGLTexture(uint32 dwWidth, uint32 dwHeight, TextureUsage usage) :
             m_glInternalFmt = GL_RGBA4;
         break;
     };
-
-    #ifndef USE_GLES
-    m_glFmt = GL_BGRA;
-    m_glType = GL_UNSIGNED_INT_8_8_8_8_REV;
-    #else
-    m_glInternalFmt = m_glFmt = COGLGraphicsContext::Get()->IsSupportTextureFormatBGRA() ? GL_BGRA_EXT : GL_RGBA;
+#endif
+    
+    m_glFmt = GL_RGBA;
     m_glType = GL_UNSIGNED_BYTE;
-    #endif
 
     LOG_TEXTURE(TRACE2("New texture: (%d, %d)", dwWidth, dwHeight));
     
@@ -135,8 +132,6 @@ void COGLTexture::EndUpdate(DrawInfo *di)
     }
 
     // Copy the image data from main memory to video card texture memory
-    // On little-endian systems (x86 and many others), ARGB datas send in BGRA order
-    // and RGBA datas are send as ABGR (something we try to avoid).
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_dwCreatedTextureWidth, m_dwCreatedTextureHeight, m_glFmt, m_glType, m_pTexture);
     OPENGL_CHECK_ERRORS;
 
